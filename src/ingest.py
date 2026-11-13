@@ -44,7 +44,6 @@ def process_lead_csv(conn, schemas_dir, workflow_id, batch_id, csv_path, file_ke
     schema = load_workflow_schema(schemas_dir, workflow_id)
     fields = schema["fields"]
 
-    # Map normalised column headers & aliases to actual field names
     header_map = {}
     for f_def in fields:
         header_map[clean_header(f_def["name"])] = f_def["name"]
@@ -66,7 +65,6 @@ def process_lead_csv(conn, schemas_dir, workflow_id, batch_id, csv_path, file_ke
 
         row_num = 0
         for row in reader:
-            # Skip completely blank rows without counting them
             if not row or all(cell.strip() == "" for cell in row):
                 continue
 
@@ -82,7 +80,6 @@ def process_lead_csv(conn, schemas_dir, workflow_id, batch_id, csv_path, file_ke
             warnings_in_row = 0
             cleaned = {}
 
-            # Validate fields in exact schema order
             for f_def in fields:
                 fname = f_def["name"]
                 ftype = f_def["type"]
@@ -130,7 +127,6 @@ def process_lead_csv(conn, schemas_dir, workflow_id, batch_id, csv_path, file_ke
                 """, (workflow_id, batch_id, row_num, reject_reason))
                 continue
 
-            # Only count field warnings if the row wasn't rejected
             if warnings_in_row > 0:
                 increment_stat(cur, "field_warnings", warnings_in_row)
 
@@ -144,7 +140,6 @@ def process_lead_csv(conn, schemas_dir, workflow_id, batch_id, csv_path, file_ke
                 if f_def.get("reference"):
                     ext_ref = cleaned.get(f_def["name"]) or ""
 
-            # Store non-PII fields in JSON
             extra = {}
             for f_def in fields:
                 fname = f_def["name"]
@@ -159,7 +154,6 @@ def process_lead_csv(conn, schemas_dir, workflow_id, batch_id, csv_path, file_ke
             existing_lead = cur.fetchone()
 
             if existing_lead is None:
-                # Apply schema defaults for null fields
                 for f_def in fields:
                     fname = f_def["name"]
                     if not f_def.get("pii", False):
@@ -172,8 +166,9 @@ def process_lead_csv(conn, schemas_dir, workflow_id, batch_id, csv_path, file_ke
                         customer_name_hash, external_ref, batch_id, extra_fields
                     ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """, (workflow_id, p_hash, p_masked, name_hash, ext_ref, batch_id, json.dumps(extra)))
+
+
             else:
-                # Duplicate lead: keep original batch_id, overwrite non-null values
                 increment_stat(cur, "duplicate_lead_rows_merged", 1)
                 merged_extra = json.loads(existing_lead["extra_fields"])
 
@@ -215,7 +210,7 @@ def process_events_jsonl(conn, jsonl_path, file_key):
 
             increment_stat(cur, "events_total", 1)
 
-            # 1. Check for malformed JSON or missing event_id
+
             try:
                 ev = json.loads(line)
                 if not isinstance(ev, dict):
@@ -237,13 +232,13 @@ def process_events_jsonl(conn, jsonl_path, file_key):
                 continue
             iso_ist, date_ist = ts_parsed
 
-            # 2. Check for duplicate event_id across drops
+
             cur.execute("SELECT 1 FROM events_ledger WHERE event_id = ?", (event_id,))
             if cur.fetchone():
                 increment_stat(cur, "duplicate_events_dropped", 1)
                 continue
 
-            # Hash the phone number before saving so plaintext PII never hits disk
+            
             raw_phone = ev.get("phone")
             p_hash = None
             if raw_phone is not None:
@@ -277,7 +272,7 @@ def ingest_drop(drop_dir, db_path, schemas_dir):
 
     drop_name = os.path.basename(os.path.normpath(drop_dir))
 
-    # Process leads in sorted workflow & filename order
+
     leads_dir = os.path.join(drop_dir, "leads")
     if os.path.exists(leads_dir):
         for wf in sorted(os.listdir(leads_dir)):
@@ -291,7 +286,7 @@ def ingest_drop(drop_dir, db_path, schemas_dir):
                 file_key = f"leads/{drop_name}/{wf}/{fname}"
                 process_lead_csv(conn, schemas_dir, wf, batch_id, full_path, file_key)
 
-    # Process events in sorted filename order
+
     events_dir = os.path.join(drop_dir, "events")
     if os.path.exists(events_dir):
         jsonl_files = sorted(f for f in os.listdir(events_dir) if f.endswith(".jsonl"))

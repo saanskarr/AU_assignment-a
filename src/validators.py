@@ -10,7 +10,7 @@ def clean_header(header_text):
     if not header_text:
         return ""
     text = header_text.strip().lower()
-    # Replace underscores and multiple spaces with a single space
+
     return re.sub(r'[_\s]+', ' ', text)
 
 
@@ -19,7 +19,7 @@ def hash_value(val):
 
 
 def mask_phone(canonical_phone):
-    # canonical_phone is +91XXXXXXXXXX
+
     return "+91******" + canonical_phone[-4:]
 
 
@@ -62,7 +62,7 @@ def parse_decimal(raw_amount):
         return None
     
     val = str(raw_amount).strip()
-    # Strip currency prefixes like ₹, Rs, Rs., INR
+
     val = re.sub(r'^(?:₹|rs\.?|inr)\s*', '', val, flags=re.IGNORECASE)
     val = val.replace(",", "").strip()
     
@@ -101,7 +101,7 @@ def parse_event_timestamp(ts_str):
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=IST)
         else:
-            # Naive timestamps are in IST per spec
+
             dt = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=IST)
 
         ist_dt = dt.astimezone(IST)

@@ -12,7 +12,7 @@ def get_db(db_path=DEFAULT_DB_PATH):
 def setup_tables(conn):
     cur = conn.cursor()
 
-    # Keep track of files we already ingested so re-running ingest does nothing
+
     cur.execute("""
         CREATE TABLE IF NOT EXISTS processed_files (
             file_key TEXT PRIMARY KEY,
@@ -20,7 +20,7 @@ def setup_tables(conn):
         )
     """)
 
-    # Leads table - PII (phone and customer_name) are stored as SHA-256 hashes
+
     cur.execute("""
         CREATE TABLE IF NOT EXISTS leads (
             workflow_id TEXT,
@@ -34,7 +34,6 @@ def setup_tables(conn):
         )
     """)
 
-    # Rejected rows from lead CSVs (no PII allowed here)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS rejections (
             workflow_id TEXT,
@@ -45,7 +44,6 @@ def setup_tables(conn):
         )
     """)
 
-    # Append-only ledger for call events
     cur.execute("""
         CREATE TABLE IF NOT EXISTS events_ledger (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,7 +58,6 @@ def setup_tables(conn):
         )
     """)
 
-    # Simple counter table for data_quality.json stats
     cur.execute("""
         CREATE TABLE IF NOT EXISTS stats (
             name TEXT PRIMARY KEY,

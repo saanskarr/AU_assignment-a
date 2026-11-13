@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 import argparse
 from src.db import DEFAULT_DB_PATH
 from src.ingest import ingest_drop

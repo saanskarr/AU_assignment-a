@@ -30,7 +30,7 @@ def generate_reports(out_dir, db_path, schemas_dir):
 
     dispositions = load_dispositions_catalogue(schemas_dir)
 
-    # Fetch all valid leads
+
     cur.execute("SELECT workflow_id, phone_hash, phone_masked, external_ref, batch_id FROM leads")
     leads = {}
     for row in cur.fetchall():
@@ -44,7 +44,7 @@ def generate_reports(out_dir, db_path, schemas_dir):
             "calls": {}
         }
 
-    # Fetch all events from the ledger
+
     cur.execute("""
         SELECT id, event_id, event_type, workflow_id, call_id,
                occurred_at_iso, occurred_at_date, phone_hash, payload
@@ -53,8 +53,7 @@ def generate_reports(out_dir, db_path, schemas_dir):
     """)
     all_events = cur.fetchall()
 
-    # Pass 1: Map (workflow_id, call_id) -> phone_hash using regular events
-    # We do this in two passes because events are shuffled and disposition.override has no phone!
+    
     call_to_phone = {}
     for ev in all_events:
         if ev["event_type"] != "disposition.override":
@@ -63,7 +62,7 @@ def generate_reports(out_dir, db_path, schemas_dir):
             if ph and ph != "INVALID_PHONE" and (wf, ph) in leads:
                 call_to_phone[(wf, ev["call_id"])] = ph
 
-    # Pass 2: Link events to leads, count orphans and unknown dispositions
+
     orphan_count = 0
     unknown_disp_count = 0
 
@@ -74,7 +73,7 @@ def generate_reports(out_dir, db_path, schemas_dir):
         ph = ev["phone_hash"]
         payload = json.loads(ev["payload"])
 
-        # Step 3: Check if event is an orphan
+     
         linked_phone_hash = None
         if etype == "disposition.override":
             linked_phone_hash = call_to_phone.get((wf, cid))
@@ -86,14 +85,14 @@ def generate_reports(out_dir, db_path, schemas_dir):
             orphan_count += 1
             continue
 
-        # Step 4: Check if disposition code is in dispositions.csv
+        
         if etype in ("disposition.set", "disposition.override"):
             code = payload.get("disposition_code", "")
             if wf not in dispositions or code not in dispositions[wf]:
                 unknown_disp_count += 1
                 continue
 
-        # Group valid events under their lead and call_id
+        
         lead_calls = leads[(wf, linked_phone_hash)]["calls"]
         if cid not in lead_calls:
             lead_calls[cid] = {
@@ -135,13 +134,13 @@ def generate_reports(out_dir, db_path, schemas_dir):
                 "completed": 0
             }
 
-        # Only count calls that have a linked call.initiated event
+        
         valid_calls = []
         for cid, c_info in lead["calls"].items():
             if c_info["initiated_at"] is None:
                 continue
 
-            # Effective disposition: latest override by occurred_at, else latest set
+            
             eff_code = None
             if c_info["overrides"]:
                 c_info["overrides"].sort(key=lambda x: (x[0], x[1]))
@@ -173,7 +172,7 @@ def generate_reports(out_dir, db_path, schemas_dir):
         connected_calls = sum(1 for c in valid_calls if c["connected"])
         last_call_at = valid_calls[-1]["initiated_at"] if valid_calls else ""
 
-        # Current disposition: most recent call (by initiated time) that has an effective disposition
+        
         current_disp = ""
         for c in reversed(valid_calls):
             if c["eff_code"]:
@@ -182,7 +181,7 @@ def generate_reports(out_dir, db_path, schemas_dir):
 
         ever_success = any(c["is_success"] for c in valid_calls)
 
-        # Lead bucket logic
+        
         if total_calls == 0:
             bucket = "yet_to_reach_out"
         elif any(c["is_terminal"] for c in valid_calls):
@@ -222,7 +221,7 @@ def generate_reports(out_dir, db_path, schemas_dir):
             "ever_success": "true" if ever_success else "false"
         })
 
-    # 1. Write batch_summary.csv
+    
     with open(os.path.join(out_dir, "batch_summary.csv"), "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow([
@@ -238,7 +237,7 @@ def generate_reports(out_dir, db_path, schemas_dir):
                 s["in_progress_dialed"], s["completed"]
             ])
 
-    # 2. Write daily_overview.csv
+
     with open(os.path.join(out_dir, "daily_overview.csv"), "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow([
@@ -252,7 +251,7 @@ def generate_reports(out_dir, db_path, schemas_dir):
             rate = f"{(conn_c / tot):.4f}" if tot > 0 else "0.0000"
             w.writerow([wf, dt, tot, conn_c, rate, len(d["success_leads"])])
 
-    # 3. Write lead_report.csv
+
     lead_report_rows.sort(key=lambda r: (r["workflow_id"], r["external_ref"]))
     with open(os.path.join(out_dir, "lead_report.csv"), "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
@@ -268,7 +267,7 @@ def generate_reports(out_dir, db_path, schemas_dir):
                 r["current_disposition"], r["ever_success"]
             ])
 
-    # 4. Write rejections.csv
+
     cur.execute("""
         SELECT workflow_id, batch_id, row_number, reason
         FROM rejections
@@ -280,7 +279,7 @@ def generate_reports(out_dir, db_path, schemas_dir):
         for r in cur.fetchall():
             w.writerow([r["workflow_id"], r["batch_id"], r["row_number"], r["reason"]])
 
-    # 5. Write data_quality.json
+
     cur.execute("SELECT name, count FROM stats")
     stats_map = {row["name"]: row["count"] for row in cur.fetchall()}
 

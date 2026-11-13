@@ -2,7 +2,7 @@
 
 ## Tools used
 
-* Gemini and VS Code's built-in AI assistant
+* ChatGPT 6 Astra and Antigravity built-in AI assistant(opus 4.8).
 
 ## What I used them for
 

@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+pipeline.db
+*.db
+data/
+data_large/
+reports/
